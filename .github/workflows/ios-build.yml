@@ -1,0 +1,31 @@
+name: Build iPhone IPA
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode and generate project
+        run: |
+          xcodebuild -version
+          brew install xcodegen
+          xcodegen generate
+      - name: Compile for physical iPhone (unsigned)
+        run: |
+          xcodebuild -project PrismCam.xcodeproj -scheme PrismCam -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/PrismCamBuild" CODE_SIGNING_ALLOWED=NO build
+      - name: Package unsigned IPA for local signing
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/PrismCamBuild/Build/Products/Release-iphoneos/PrismCam.app" "$RUNNER_TEMP/ipa/Payload/"
+          cd "$RUNNER_TEMP/ipa"
+          zip -qr "$GITHUB_WORKSPACE/PrismCam-unsigned.ipa" Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PrismCam-unsigned-ipa
+          path: PrismCam-unsigned.ipa
+          retention-days: 14
